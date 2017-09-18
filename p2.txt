@@ -1,0 +1,53 @@
+
+                               Computer Systems
+                                  Project 2
+                                  Fall 2017
+
+
+turnin code:  cs_p2
+
+Write a collection of C functions that provide the functionality of a
+heap manager.
+
+I will write a set of test programs which invoke your functions.
+
+These are the functions that you should provide in a *single* file named p2.c:
+
+    void  heap_init(int num_pages_for_heap)
+
+    void *heap_alloc(int num_bytes_to_allocate)
+
+    void  heap_free(void *pointer_to_area_to_free)
+
+
+Your program must manage the space in a set of pages which you obtain via
+the mmap system call.
+
+The program must use the first-fit algorithm to allocate new space.
+
+The program must align requests on 16-byte addresses.
+
+The program will need to maintain data structures that minimally keep
+track of blocks of free space.  These data structures should *not* be
+in the allocated pages themselves.
+
+If the user frees two blocks of memory that are adjacent, your program
+should coalesce them.
+
+If the user attempts to allocate more space than is available in an open
+free block, then heap_alloc should return NULL.
+
+## THIS PART WILL NOT BE TESTED - so is not required
+# If the user attempts to heap_free space that was not obtained via heap_alloc
+# then heap_free should return silently without freeing the space.
+
+
+Just turnin a C source file with the functions in it; do NOT include main.
+I will provide a main in my test code when I test your functions.
+
+
+To test the project, I will do something like this:
+    rm -f p2
+    rm -f *.o
+    cc -o p2 p2testX.c p2.c   # p2.c is your code and main is in p2testX.c
+    ./p2
