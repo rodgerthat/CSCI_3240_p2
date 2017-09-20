@@ -25,6 +25,20 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+// data structure to track free blocks
+typedef struct {
+    int *location;
+    int size;
+} FreeBlock;
+
+FreeBlock freeList[100];  // using an array to track the free space
+
+typedef struct {
+    FreeBlock fB;
+    int *prev;
+    int *next;
+} freeListNode;
+
 void heap_init(int num_pages_for_heap) {
    
     int i, pgsz, *ip;
@@ -49,6 +63,18 @@ void heap_init(int num_pages_for_heap) {
     printf("region mod16: %d\n", (int)(long int)region % 16);
     printf("region end: %p\n", region + (pgsz*num_pages_for_heap));
 
+    // when the heap is initialized, 
+    // we'll start start the linkedlist to track the freespace
+    // initially, it's all freespace. 
+    
+    int initialSize = (region + (pgsz*num_pages_for_heap)) - region;
+    
+    freeList[0].location = region;
+    freeList[0].size = initialSize;
+
+    printf("freelist[0].location: %p \n", freeList[0].location);
+    printf("freelist[0].size: %d \n", freeList[0].size);
+
     return;
 }
 
@@ -62,4 +88,5 @@ void heap_free(void *pointer_to_area_to_free) {
 
     // you can only free a full block, not a partial block
 }
+
 
