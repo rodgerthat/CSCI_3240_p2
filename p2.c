@@ -25,19 +25,43 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define ARRAY_SIZE 10
+//const static int ARRAY_SIZE = 10;
+
 // data structure to track free blocks
 typedef struct {
     int *location;
     int size;
 } FreeBlock;
 
-FreeBlock freeList[100];  // using an array to track the free space
+FreeBlock freeList[ARRAY_SIZE];  // using an array to track the free space
+int arrayLastIndex = 0;
+int *heapStart;
 
+/*
 typedef struct {
     FreeBlock fB;
     int *prev;
     int *next;
 } freeListNode;
+*/
+
+void print_freeList() {
+
+    int i=0;
+    printf("-------------------------------------\n");
+
+    printf("arrayLastIndex: %d \n", arrayLastIndex);
+
+    printf("Heap Start: %p \n", heapStart);
+
+    for(i; i<ARRAY_SIZE; ++i) {
+        printf("freelist[%d]: ", i);
+        printf("location: %p \t size: %d \t \n", freeList[i].location, freeList[i].size);
+    }
+    printf("-------------------------------------\n");
+}
+
 
 void heap_init(int num_pages_for_heap) {
    
@@ -72,8 +96,9 @@ void heap_init(int num_pages_for_heap) {
     freeList[0].location = region;
     freeList[0].size = initialSize;
 
-    printf("freelist[0].location: %p \n", freeList[0].location);
-    printf("freelist[0].size: %d \n", freeList[0].size);
+    heapStart = region;
+
+    print_freeList();
 
     return;
 }
@@ -81,8 +106,37 @@ void heap_init(int num_pages_for_heap) {
 
 void *heap_alloc(int num_bytes_to_allocate) {
 
+    // implement first~fit, loop through array, and find first available space for block.
+    int i=0;
+    for (i; i<ARRAY_SIZE; ++i) {
+            
+        // if the freeList array node has enough space, 
+        if (num_bytes_to_allocate < freeList[i].size) {
+            // assign it to a % 16 address
+            if ( (long int)freeList[i].location % 16 == 0 ) {
+                // it's already at a % 16 address
+                // update freeList
+                freeList[i].location += num_bytes_to_allocate;
+                freeList[i].size = freeList[i].size - num_bytes_to_allocate;
+                return freeList[i].location;
+            } else {
+                // it's not on a %16 bit address
+                freeList[i].location += (long int)freeList[i].location % 16;
+                freeList[i].size += freeList[i].size - num_bytes_to_allocate;
+                return freeList[i].location;
+            }
+            
+        }
+
+    }
+
+    print_freeList();
+
+
+    // if the region requested cannot fit...
     return NULL;
 }
+
 
 void heap_free(void *pointer_to_area_to_free) {
 
