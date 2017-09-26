@@ -1,146 +1,108 @@
-/*
- * =====================================================================================
- *
- *       Filename:  p2.c
- *
- *    Description:  A collection of C functions that provide the functionality
- *                  of a heap manager
- *
- *        Version:  1.0
- *        Created:  09/14/2017 11:54:18 AM
- *       Revision:  none
- *       Compiler:  gcc
- *
- *         Author:  Norris, Joel R. 
- *          Class:  CSCI_3240
- *      Professor:  Dr. Butler
- *
- * =====================================================================================
- */
+// Norris, Joel R.
+// CSCI_3240
+// p2
+// Dr. Butler
+// Create a set of functions that function as a mini heap manager
 
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
 #include <sys/mman.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#define ARRAY_SIZE 10
-//const static int ARRAY_SIZE = 10;
 
-// data structure to track free blocks
-typedef struct {
-    int *location;
-    int size;
-} FreeBlock;
+struct freeBlock{
+	char check;
+	void *address;
+	int size;
+	int freeSpace;
+	struct freeBlock *next;
+};
+// struct to track the start of our linked list
+struct freeBlock *head;
 
-FreeBlock freeList[ARRAY_SIZE];  // using an array to track the free space
-int arrayLastIndex = 0;
-int *heapStart;
+void heap_init (int num_pages_for_heap){
 
-/*
-typedef struct {
-    FreeBlock fB;
-    int *prev;
-    int *next;
-} freeListNode;
-*/
-
-void print_freeList() {
-
-    int i=0;
-    printf("-------------------------------------\n");
-
-    printf("arrayLastIndex: %d \n", arrayLastIndex);
-
-    printf("Heap Start: %p \n", heapStart);
-
-    for(i; i<ARRAY_SIZE; ++i) {
-        printf("freelist[%d]: ", i);
-        printf("location: %p \t size: %d \t \n", freeList[i].location, freeList[i].size);
-    }
-    printf("-------------------------------------\n");
+	void *heap;
+	num_pages_for_heap = num_pages_for_heap * getpagesize();
+	heap = mmap(NULL, num_pages_for_heap, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+	memset( heap,'X',num_pages_for_heap );
+	head = (struct freeBlock *) malloc(sizeof(struct freeBlock));
+	head->freeSpace = num_pages_for_heap;
+	head->address = heap;
+	head->check = 'B';
+	head->size = 0;
+	head->next = NULL;
+	
+	return;
 }
 
+void *heap_alloc(int num_bytes_to_allocate)
+{
+	struct freeBlock *temp,*newBlock;
 
-void heap_init(int num_pages_for_heap) {
-   
-    int i, pgsz, *ip;
-    unsigned char *cp;
-    void *region;
+	char *t;
+	long int freeSpace, math;
+	temp = head;
 
-    pgsz = getpagesize();
-    printf("pgsz: %d\n", pgsz);
+	while( temp->next != NULL){
 
-    region = mmap(NULL, pgsz, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-
-
-    // if mmap fails, return -1
-    if (region == ((void *) -1)) {
-        perror("mmap"); // best to call this now, don't wait
-        //return 1;
-    }
-
-    // if it works, returns pointer to region in memory we can use
-    printf("region: %p\n", region); // print pointer to available memory
-    // make sure it's on a 16-bit divisible address
-    printf("region mod16: %d\n", (int)(long int)region % 16);
-    printf("region end: %p\n", region + (pgsz*num_pages_for_heap));
-
-    // when the heap is initialized, 
-    // we'll start start the linkedlist to track the freespace
-    // initially, it's all freespace. 
-    
-    int initialSize = (region + (pgsz*num_pages_for_heap)) - region;
-    
-    freeList[0].location = region;
-    freeList[0].size = initialSize;
-
-    heapStart = region;
-
-    print_freeList();
-
-    return;
-}
-
-
-void *heap_alloc(int num_bytes_to_allocate) {
-
-    // implement first~fit, loop through array, and find first available space for block.
-    int i=0;
-    for (i; i<ARRAY_SIZE; ++i) {
-            
-        // if the freeList array node has enough space, 
-        if (num_bytes_to_allocate < freeList[i].size) {
-            // assign it to a % 16 address
-            if ( (long int)freeList[i].location % 16 == 0 ) {
-                // it's already at a % 16 address
-                // update freeList
-                freeList[i].location += num_bytes_to_allocate;
-                freeList[i].size = freeList[i].size - num_bytes_to_allocate;
-                return freeList[i].location;
-            } else {
-                // it's not on a %16 bit address
-                freeList[i].location += (long int)freeList[i].location % 16;
-                freeList[i].size += freeList[i].size - num_bytes_to_allocate;
-                return freeList[i].location;
-            }
-            
+		if ((temp->check == 'A') && (temp->size >= num_bytes_to_allocate)) 
+        {
+            temp->check = 'B';
+            temp->size = num_bytes_to_allocate;
+            return temp->address;
         }
 
+		freeSpace = temp->freeSpace;
+		if ( temp->freeSpace < num_bytes_to_allocate ) return NULL;
+		temp = temp->next;
+	}
+		
+    math = temp->size;
+
+    while (( (long int)temp->address + math) % 16 !=0 ) 
+    {	
+        math += 1;
+        if ( num_bytes_to_allocate + math>temp->freeSpace ) return NULL;
     }
+    
+    newBlock = (struct freeBlock *) malloc( sizeof(struct freeBlock) ) ;
 
-    print_freeList();
+    temp->next = newBlock;
 
+    newBlock->check = 'B';
+    newBlock->next = NULL;
+    newBlock->freeSpace = temp->freeSpace-math;
+    newBlock->size = num_bytes_to_allocate;
+    newBlock->address = temp->address + math;
 
-    // if the region requested cannot fit...
-    return NULL;
+	return newBlock->address; 
+
 }
+	
+	
+void  heap_free(void *pointer_to_area_to_free){
 
-
-void heap_free(void *pointer_to_area_to_free) {
-
-    // you can only free a full block, not a partial block
+    struct freeBlock *temp,*prev;
+    temp = head;
+    while( temp->address != pointer_to_area_to_free )
+    {
+        prev = temp;
+        temp = temp->next;
+    }
+    temp->check='A';
+    if ( temp->next->check == 'A' )
+    {
+        temp->size += temp->next->size;
+        temp->freeSpace += temp->next->size;
+        temp->next = temp->next->next;
+    }
+    if (prev->check=='A')
+    {
+        prev->size += temp->size;
+        prev->freeSpace += prev->size;
+        prev->next = temp->next;
+    }
+		
 }
-
-
+		
